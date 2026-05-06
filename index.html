@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="de" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Lerntagebuch</title>
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+
+<!-- iOS Safari -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Lerntagebuch">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+
+<!-- Theme color -->
+<meta name="theme-color" content="#eef0f8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#12101e" media="(prefers-color-scheme: dark)">
+<meta name="format-detection" content="telephone=no">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ══════════════════════════════════════════
+   LIQUID GLASS — no backdrop-filter
+   (Android WebView safe version)
+══════════════════════════════════════════ */
+
+/* ─── TOKENS ─── */
+:root {
+  --accent:      #FF4500;
+  --accent-glow: rgba(255,69,0,.30);
+  --accent-soft: rgba(255,69,0,.10);
+
+  --bg:       #eef0f8;
+  --card:     #ffffff;
+  --text:     #1a1a2e;
+  --muted:    #7b6fa0;
+  --strike:   #b0a8c8;
+  --border:   rgba(160,140,210,.20);
+
+  --glass:    rgba(255,255,255,.82);
+  --glass-h:  rgba(255,255,255,.92);
+  --shadow:   0 8px 28px rgba(80,60,140,.10);
+  --shadow-s: 0 2px 10px rgba(80,60,140,.08);
+  --radius:   18px;
+  --radius-s: 12px;
+
+  --input-bg: rgba(255,255,255,.70);
+}
+
+[data-theme="dark"] {
+  --bg:       #12101e;
+  --card:     #1e1b30;
+  --text:     #ece8ff;
+  --muted:    #8070a8;
+  --strike:   #4a3e68;
+  --border:   rgba(255,255,255,.08);
+
+  --glass:    rgba(36,30,56,.90);
+  --glass-h:  rgba(50,42,72,.95);
+  --shadow:   0 8px 28px rgba(0,0,0,.40);
+  --shadow-s: 0 2px 10px rgba(0,0,0,.30);
+  --input-bg: rgba(255,255,255,.06);
+}
+
+/* ─── RESET ─── */
+*, *::before, *::after {
+  box-sizing: border-box; margin: 0; padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+html, body { height: 100%; overscroll-behavior: none; }
+
+body {
+  font-family: 'Barlow', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100vh;
+  transition: background .3s, color .3s;
+  -webkit-text-size-adjust: 100%;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+
+  /* Liquid Glass ambient gradient overlaid on bg */
+  background-image:
+    radial-gradient(ellipse at 15%  10%, rgba(255,69,0,.08)   0%, transparent 50%),
+    radial-gradient(ellipse at 85%  85%, rgba(100,60,200,.10)  0%, transparent 50%),
+    radial-gradient(ellipse at 55%  40%, rgba(30,140,255,.07)  0%, transparent 45%);
+}
+
+@keyframes pulse  { 0%,100%{opacity:1} 50%{opacity:.3} }
+@keyframes spin   { to{transform:rotate(360deg)} }
+@keyframes fadeIn { from{opacity:0;transform:translateY(-5px)} to{opacity:1;transform:translateY(0)} }
+@keyframes slideUp{ from{transform:translateY(100%)} to{transform:translateY(0)} }
+
+/* ─── HEADER ─── */
+.app-header {
+  position: sticky; top: 0; z-index: 100;
+  background: var(--glass);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 16px;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  box-shadow: var(--shadow-s);
+}
+.app-brand { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+.pags-logo  { height: 44px; width: auto; flex-shrink: 0; }
+[data-theme="dark"] .pags-logo { filter: brightness(0) invert(1); }
+.app-titles {
+  display: flex; flex-direction: column; justify-content: center;
+  min-width: 0; padding-top: 22px;
+}
+.app-name {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 900; font-size: 20px; letter-spacing: .02em;
+  text-transform: uppercase; color: var(--accent); line-height: 1;
+}
+.header-right { display: flex; align-items: center; gap: 4px; }
+
+.hbtn {
+  background: var(--input-bg); border: 1px solid var(--border);
+  color: var(--muted); cursor: pointer; padding: 7px; border-radius: 10px;
+  font-size: 16px; display: flex; align-items: center;
+  transition: all .18s; line-height: 1;
+}
+.hbtn:active { background: var(--glass-h); color: var(--text); transform: scale(.92); }
+
+.dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--muted); flex-shrink: 0; transition: background .3s;
+}
+.dot.ok   { background: #22c55e; box-shadow: 0 0 6px rgba(34,197,94,.5); }
+.dot.err  { background: #ef4444; box-shadow: 0 0 6px rgba(239,68,68,.5); }
+.dot.busy { background: var(--accent); animation: pulse 1.2s ease-in-out infinite;
+            box-shadow: 0 0 6px var(--accent-glow); }
+
+/* ─── WEEK BAR ─── */
+.week-bar {
+  position: sticky; top: 65px; z-index: 100;
+  background: var(--glass);
+  border-bottom: 1px solid var(--border);
+  padding: 5px 8px 8px;
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+}
+.nav-btn {
+  background: none; border: none; color: var(--text);
+  font-size: 22px; cursor: pointer; padding: 2px 12px;
+  border-radius: 10px; line-height: 1; transition: all .15s;
+}
+.nav-btn:active { background: var(--glass-h); transform: scale(.9); }
+.week-label {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700; font-size: 13px; letter-spacing: .06em;
+  color: var(--muted); min-width: 120px; text-align: center;
+}
+
+/* ─── DAY SECTION — glass card ─── */
+.day-section {
+  margin: 10px 12px 0;
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--glass);
+  border: 1px solid rgba(255,255,255,.55);
+  box-shadow: var(--shadow);
+  transition: box-shadow .25s, transform .2s;
+}
+[data-theme="dark"] .day-section {
+  border-color: rgba(255,255,255,.08);
+}
+.day-section:last-of-type { margin-bottom: 0; }
+.day-section.open {
+  box-shadow: 0 12px 36px rgba(255,69,0,.12), var(--shadow);
+}
+
+.day-header {
+  padding: 16px 18px 14px; cursor: pointer; user-select: none;
+  display: flex; align-items: flex-end; justify-content: space-between;
+  transition: background .15s;
+}
+.day-header:active { background: var(--glass-h); }
+
+.day-name {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 900; font-size: 28px;
+  letter-spacing: -.01em; text-transform: uppercase; line-height: 1;
+}
+.day-date { font-size: 11px; color: var(--muted); margin-top: 3px; }
+.day-today .day-name { color: var(--accent); }
+.day-today .day-header {
+  background: linear-gradient(135deg, var(--accent-soft) 0%, transparent 80%);
+}
+
+.day-chevron {
+  color: var(--muted); font-size: 18px; line-height: 1;
+  transition: transform .25s; margin-bottom: 2px;
+}
+.day-section.open .day-chevron { transform: rotate(90deg); }
+.day-badge {
+  background: var(--accent); color: #fff;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700; font-size: 11px; border-radius: 10px;
+  padding: 1px 7px; margin-bottom: 4px; display: none;
+  box-shadow: 0 2px 8px var(--accent-glow);
+}
+.day-badge.visible { display: inline-block; }
+
+/* ─── CONTENT ─── */
+.day-content { max-height: 0; overflow: hidden; transition: max-height .3s ease; }
+.day-section.open .day-content { max-height: 3000px; }
+.task-list { padding: 0 16px 4px; }
+
+.task-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 9px 0; border-bottom: 1px solid var(--border);
+  animation: fadeIn .18s ease;
+}
+.task-item:last-child { border-bottom: none; }
+
+.cb {
+  width: 22px; height: 22px; min-width: 22px;
+  border: 2px solid var(--border); border-radius: 6px;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  background: var(--input-bg); transition: all .15s; flex-shrink: 0;
+}
+.cb.on { background: var(--accent); border-color: var(--accent);
+          box-shadow: 0 2px 8px var(--accent-glow); }
+.cb.on::after {
+  content: ''; width: 5px; height: 9px;
+  border: 2px solid #fff; border-top: none; border-left: none;
+  transform: rotate(45deg) translateY(-1px);
+}
+.task-text {
+  flex: 1; font-family: 'Barlow', sans-serif; font-size: 15px;
+  color: var(--text); background: none; border: none; outline: none;
+  padding: 2px 0; min-width: 0; caret-color: var(--accent);
+}
+.task-text:focus { border-bottom: 1px solid var(--accent); }
+.task-item.done .task-text { text-decoration: line-through; color: var(--strike); }
+.del-btn {
+  opacity: 0; background: none; border: none; color: var(--muted);
+  cursor: pointer; font-size: 18px; padding: 2px 4px;
+  border-radius: 4px; line-height: 1; transition: all .15s; flex-shrink: 0;
+}
+.task-item:hover .del-btn { opacity: 1; }
+.del-btn:hover { color: #ef4444; }
+
+/* ─── ADD ROW ─── */
+.add-row { display: flex; align-items: center; gap: 10px; padding: 8px 16px 14px; }
+.add-btn {
+  width: 32px; height: 32px; min-width: 32px; border: none;
+  border-radius: 10px; background: var(--accent); color: #fff;
+  font-size: 20px; font-weight: 700; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; flex-shrink: 0;
+  box-shadow: 0 4px 12px var(--accent-glow); transition: all .15s;
+  -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+}
+.add-btn:active { opacity: .75; transform: scale(.92); }
+.add-input {
+  flex: 1; background: none; border: none; outline: none;
+  font-family: 'Barlow', sans-serif; font-size: 15px;
+  color: var(--muted); padding: 4px 0; caret-color: var(--accent);
+}
+.add-input::placeholder { color: var(--muted); }
+.add-input:focus { color: var(--text); }
+
+/* ─── JOURNAL ─── */
+.journal-block { padding: 0 16px 16px; display: flex; flex-direction: column; gap: 12px; }
+.journal-label {
+  font-size: 10px; font-weight: 700; letter-spacing: .10em;
+  text-transform: uppercase; color: var(--accent);
+  margin-bottom: 5px; display: flex; align-items: center; gap: 5px;
+}
+.journal-icon { font-size: 12px; }
+.journal-textarea {
+  width: 100%; min-height: 70px;
+  background: var(--input-bg);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-s);
+  padding: 10px 13px;
+  font-family: 'Barlow', sans-serif; font-size: 14px;
+  color: var(--text); line-height: 1.5;
+  resize: none; outline: none; caret-color: var(--accent);
+  transition: border .15s, box-shadow .15s; box-sizing: border-box;
+}
+.journal-textarea::placeholder { color: var(--muted); font-style: italic; }
+.journal-textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.journal-divider { border: none; border-top: 1px solid var(--border); margin: 4px 16px 0; }
+
+/* ─── TOAST ─── */
+.toast {
+  position: fixed; bottom: 24px; left: 50%;
+  transform: translateX(-50%) translateY(60px);
+  background: var(--card); color: var(--text);
+  border: 1px solid var(--border);
+  padding: 10px 20px; border-radius: 24px;
+  font-size: 13px; font-weight: 500;
+  transition: transform .3s ease; z-index: 999;
+  white-space: nowrap; pointer-events: none;
+  box-shadow: var(--shadow);
+}
+.toast.show { transform: translateX(-50%) translateY(0); }
+
+/* ─── SHEET ─── */
+.sheet-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(20,10,40,.50); z-index: 200; align-items: flex-end;
+}
+.sheet-overlay.open { display: flex; }
+.sheet {
+  background: var(--glass);
+  border: 1px solid var(--border);
+  border-radius: 24px 24px 0 0;
+  padding: 20px 22px 40px;
+  width: 100%; max-height: 88vh; overflow-y: auto;
+  animation: slideUp .28s ease;
+  box-shadow: 0 -8px 32px rgba(80,40,160,.15);
+}
+.handle { width: 38px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 18px; }
+.sheet-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 900; font-size: 22px; text-transform: uppercase; margin-bottom: 18px;
+}
+.grp { margin-bottom: 20px; }
+.grp-label {
+  font-size: 11px; font-weight: 600; letter-spacing: .09em;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 7px;
+}
+.s-input {
+  width: 100%; padding: 11px 13px;
+  background: var(--input-bg); border: 1.5px solid var(--border);
+  border-radius: var(--radius-s);
+  font-family: 'Barlow', sans-serif; font-size: 14px; color: var(--text); outline: none;
+  transition: border .15s, box-shadow .15s;
+}
+.s-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.s-note { font-size: 12px; color: var(--muted); margin-top: 7px; line-height: 1.55; }
+.s-note a { color: var(--accent); text-decoration: none; }
+.sbtn {
+  width: 100%; padding: 13px; border: none; border-radius: var(--radius-s);
+  font-family: 'Barlow Condensed', sans-serif; font-weight: 700;
+  font-size: 16px; text-transform: uppercase; letter-spacing: .04em;
+  cursor: pointer; margin-top: 6px; transition: all .15s;
+}
+.sbtn.primary { background: var(--accent); color: #fff; box-shadow: 0 4px 16px var(--accent-glow); }
+.sbtn.secondary { background: var(--input-bg); color: var(--text); border: 1.5px solid var(--border); }
+.sbtn:active { transform: scale(.97); opacity: .85; }
+.drive-card {
+  display: flex; align-items: center; gap: 11px;
+  background: var(--input-bg); border: 1px solid var(--border);
+  border-radius: var(--radius-s); padding: 11px 13px;
+}
+.drive-avatar {
+  width: 36px; height: 36px; border-radius: 50%; background: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-weight: 700; font-size: 14px; flex-shrink: 0;
+  box-shadow: 0 2px 8px var(--accent-glow);
+}
+.drive-name { font-weight: 600; font-size: 14px; }
+.drive-email { color: var(--muted); font-size: 12px; }
+.empty-hint { padding: 20px 16px; font-size: 13px; color: var(--muted); font-style: italic; }
+
+/* ─── FOOTER ─── */
+.app-footer {
+  text-align: center; padding: 18px 20px 28px;
+  font-size: 11px; color: var(--muted);
+  margin: 12px; line-height: 1.6;
+  background: var(--glass);
+  border: 1px solid rgba(255,255,255,.55);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-s);
+}
+[data-theme="dark"] .app-footer { border-color: rgba(255,255,255,.08); }
+
+/* sync spin */
+#syncBtn.spinning { animation: spin .9s linear infinite !important; }
+</style>
+</head>
+<body>
+
+<div class="app-header">
+  <div class="app-brand">
+    <img class="pags-logo" src="pags_logo.png" alt="PAGS Külsheim">
+    <div class="app-titles">
+      <div class="app-name">Lerntagebuch</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="dot" id="driveStatus" title="Drive-Status"></div>
+    <button class="hbtn" id="syncBtn" onclick="syncNow()" title="Jetzt synchronisieren">↻</button>
+    <button class="hbtn" onclick="toggleTheme()" title="Hell/Dunkel">◐</button>
+    <button class="hbtn" onclick="openSettings()" title="Einstellungen">⚙</button>
+  </div>
+</div>
+<div class="week-bar">
+  <button class="nav-btn" onclick="changeWeek(-1)">‹</button>
+  <div class="week-label" id="weekLabel"></div>
+  <button class="nav-btn" onclick="changeWeek(1)">›</button>
+</div>
+
+<div id="dayContainer"></div>
+
+<footer class="app-footer">
+  &copy; Thorsten von Plotho-Kettner &middot; PAGS Külsheim
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<!-- Settings Sheet -->
+<div class="sheet-overlay" id="sheetOverlay" onclick="closeSheetBg(event)">
+  <div class="sheet">
+    <div class="handle"></div>
+    <div class="sheet-title">Einstellungen</div>
+
+    <div class="grp">
+      <div class="grp-label">Google Drive</div>
+      <div id="driveAuthArea"></div>
+    </div>
+
+    <div class="grp" id="clientIdGroup">
+      <div class="grp-label">OAuth Client ID</div>
+      <input class="s-input" id="clientIdInput" type="text" placeholder="xxxxxxxxxx.apps.googleusercontent.com">
+      <div class="s-note">
+        1. <a href="https://console.cloud.google.com/apis/credentials" target="_blank">Google Cloud Console</a> öffnen<br>
+        2. Projekt erstellen → Drive API aktivieren<br>
+        3. OAuth 2.0 Client ID (Webanwendung) erstellen<br>
+        4. Autorisierte JS-Quelle: die URL dieser Datei eintragen<br>
+        5. Client ID hier einfügen und speichern
+      </div>
+      <button class="sbtn primary" onclick="saveClientId()" style="margin-top:10px;">Speichern &amp; verbinden</button>
+    </div>
+
+    <div class="grp">
+      <div class="grp-label">Daten</div>
+      <button class="sbtn secondary" onclick="exportJSON()">Als JSON exportieren</button>
+      <button class="sbtn secondary" onclick="importJSON()" style="margin-top:4px;">JSON importieren</button>
+      <input type="file" id="importFile" accept=".json" style="display:none" onchange="doImport(event)">
+    </div>
+
+    <button class="sbtn secondary" onclick="closeSheet()">Schließen</button>
+  </div>
+</div>
+
+<script>
+/* ════════════════════════════════════════════════
+   CONSTANTS
+════════════════════════════════════════════════ */
+const DAYS_DE = ['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag'];
+const DAYS_KEY= ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+
+/* ════════════════════════════════════════════════
+   STATE
+════════════════════════════════════════════════ */
+let weekOffset = 0;
+let data = {};          // { "2026-W18": { monday:[{id,text,done}], ... } }
+let driveFileId = null;
+let accessToken = null;
+let tokenClient = null;
+let saveTimer = null;
+let userInfo = null;
+
+/* ════════════════════════════════════════════════
+   WEEK HELPERS
+════════════════════════════════════════════════ */
+function getWeekKey(offset) {
+  const d = new Date();
+  d.setDate(d.getDate() + (offset||0)*7);
+  const thu = new Date(d);
+  thu.setDate(d.getDate() - (d.getDay()||7) + 4); // ISO Thursday
+  const jan1 = new Date(thu.getFullYear(), 0, 1);
+  const week = Math.ceil(((thu - jan1)/86400000 + 1) / 7);
+  return `${thu.getFullYear()}-W${String(week).padStart(2,'0')}`;
+}
+
+function getWeekDates(offset) {
+  const today = new Date();
+  const dow = today.getDay()||7;
+  const mon = new Date(today);
+  mon.setDate(today.getDate() - dow + 1 + (offset||0)*7);
+  return Array.from({length:7},(_,i)=>{ const d=new Date(mon); d.setDate(mon.getDate()+i); return d; });
+}
+
+function fmtDate(d) {
+  return d.toLocaleDateString('de-DE',{day:'2-digit',month:'long',year:'numeric'});
+}
+function fmtShort(d) {
+  return d.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'});
+}
+function isToday(d) {
+  const n=new Date();
+  return d.getDate()===n.getDate()&&d.getMonth()===n.getMonth()&&d.getFullYear()===n.getFullYear();
+}
+function getWeekLabel(offset) {
+  const kw = getWeekKey(offset).split('-W')[1];
+  const dates = getWeekDates(offset);
+  return `KW ${kw} &nbsp;·&nbsp; ${fmtShort(dates[0])} – ${fmtShort(dates[6])}`;
+}
+
+/* ════════════════════════════════════════════════
+   DATA HELPERS
+════════════════════════════════════════════════ */
+const WEEKDAYS = ['monday','tuesday','wednesday','thursday','friday'];
+
+function weekData(offset) {
+  const k = getWeekKey(offset!==undefined?offset:weekOffset);
+  if(!data[k]){
+    data[k]={};
+    DAYS_KEY.forEach(d=>{
+      data[k][d]=[];
+      // journal fields only for Mon–Fri
+      if(WEEKDAYS.includes(d)){
+        data[k][d+'_planung']='';
+        data[k][d+'_lernzuwachs']='';
+      }
+    });
+  } else {
+    // ensure fields exist in older saved data
+    WEEKDAYS.forEach(d=>{
+      if(data[k][d+'_planung']===undefined) data[k][d+'_planung']='';
+      if(data[k][d+'_lernzuwachs']===undefined) data[k][d+'_lernzuwachs']='';
+    });
+  }
+  return data[k];
+}
+
+function newId() { return Date.now().toString(36)+Math.random().toString(36).slice(2,5); }
+
+/* ════════════════════════════════════════════════
+   RENDER
+════════════════════════════════════════════════ */
+function render() {
+  document.getElementById('weekLabel').innerHTML = getWeekLabel(weekOffset);
+  const wd = weekData();
+  const dates = getWeekDates(weekOffset);
+  const container = document.getElementById('dayContainer');
+
+  // Remember open state
+  const openDays = {};
+  container.querySelectorAll('.day-section').forEach(s=>{
+    openDays[s.dataset.day] = s.classList.contains('open');
+  });
+
+  container.innerHTML = '';
+
+  DAYS_KEY.forEach((key,i)=>{
+    const date = dates[i];
+    const today = isToday(date);
+    const tasks = wd[key]||[];
+    const doneCnt = tasks.filter(t=>t.done).length;
+    const wasOpen = openDays[key]!==undefined ? openDays[key] : today;
+
+    const sec = document.createElement('div');
+    sec.className = 'day-section'+(wasOpen?' open':'');
+    sec.dataset.day = key;
+
+    const isWeekday = WEEKDAYS.includes(key);
+    const planung = isWeekday ? (wd[key+'_planung']||'') : '';
+    const lernzuwachs = isWeekday ? (wd[key+'_lernzuwachs']||'') : '';
+
+    const journalHTML = isWeekday ? `
+      <hr class="journal-divider">
+      <div class="journal-block">
+        <div class="journal-field">
+          <div class="journal-label"><span class="journal-icon">📋</span>Tagesplanung</div>
+          <textarea class="journal-textarea"
+            id="plan-${key}"
+            placeholder="Was nehme ich mir heute vor…"
+            onblur="saveJournal('${key}','planung',this.value)"
+            oninput="autoResize(this)"
+          >${esc(planung)}</textarea>
+        </div>
+        <div class="journal-field">
+          <div class="journal-label"><span class="journal-icon">✨</span>Lernzuwachs</div>
+          <textarea class="journal-textarea"
+            id="lern-${key}"
+            placeholder="Was habe ich heute gelernt…"
+            onblur="saveJournal('${key}','lernzuwachs',this.value)"
+            oninput="autoResize(this)"
+          >${esc(lernzuwachs)}</textarea>
+        </div>
+      </div>` : '';
+
+    sec.innerHTML = `
+      <div class="day-header ${today?'day-today':''}" onclick="toggleDay('${key}')">
+        <div class="day-left">
+          <div class="day-name">${DAYS_DE[i]}</div>
+          <div class="day-date">${fmtDate(date)}${today?' &mdash; <b>Heute</b>':''}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          ${doneCnt>0?`<span class="day-badge visible">${doneCnt}✓</span>`:''}
+          <span class="day-chevron">›</span>
+        </div>
+      </div>
+      <div class="day-content">
+        <div class="task-list" id="tl-${key}">
+          ${tasks.map(t=>taskHTML(key,t)).join('')}
+        </div>
+        <div class="add-row">
+          <input class="add-input" id="ai-${key}" type="text"
+            placeholder="Neue Aufgabe hinzufügen…"
+            onkeydown="onAddKey(event,'${key}')"
+            oninput="onAddInput(event,'${key}')">
+          <button class="add-btn" onclick="doAdd('${key}')">+</button>
+        </div>
+        ${journalHTML}
+      </div>`;
+    container.appendChild(sec);
+  });
+}
+
+function taskHTML(dayKey, t) {
+  return `<div class="task-item${t.done?' done':''}" data-id="${t.id}">
+    <div class="cb${t.done?' on':''}" onclick="doToggle('${dayKey}','${t.id}')"></div>
+    <input class="task-text" type="text" value="${esc(t.text)}"
+      onblur="doEdit('${dayKey}','${t.id}',this.value)"
+      onkeydown="if(event.key==='Enter')this.blur()">
+    <button class="del-btn" onclick="doDel('${dayKey}','${t.id}')">×</button>
+  </div>`;
+}
+
+function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function saveJournal(key, field, value){
+  const wd = weekData();
+  wd[key+'_'+field] = value;
+  schedule();
+}
+
+function autoResize(el){
+  el.style.height='auto';
+  el.style.height=(el.scrollHeight)+'px';
+}
+
+/* ════════════════════════════════════════════════
+   ACTIONS
+════════════════════════════════════════════════ */
+function toggleDay(key) {
+  const sec = document.querySelector(`.day-section[data-day="${key}"]`);
+  sec.classList.toggle('open');
+}
+
+function doToggle(key, id) {
+  const wd = weekData();
+  const t = wd[key].find(x=>x.id===id);
+  if(!t) return;
+  t.done = !t.done;
+  const item = document.querySelector(`.day-section[data-day="${key}"] [data-id="${id}"]`);
+  if(item){ item.classList.toggle('done',t.done); item.querySelector('.cb').classList.toggle('on',t.done); }
+  refreshBadge(key);
+  schedule();
+}
+
+function doEdit(key, id, val) {
+  const wd = weekData();
+  const t = wd[key].find(x=>x.id===id);
+  if(t && t.text !== val.trim()) { t.text = val.trim(); schedule(); }
+}
+
+function doDel(key, id) {
+  const wd = weekData();
+  wd[key] = wd[key].filter(x=>x.id!==id);
+  const item = document.querySelector(`.day-section[data-day="${key}"] [data-id="${id}"]`);
+  if(item){ item.style.transition='all .18s ease'; item.style.opacity='0'; item.style.transform='translateX(16px)'; setTimeout(()=>item.remove(),180); }
+  refreshBadge(key);
+  schedule();
+}
+
+// Called by tap on + button
+function doAdd(key) {
+  const inp = document.getElementById('ai-'+key);
+  if(!inp) return;
+  const text = inp.value.trim();
+  if(!text) return;
+  addTaskToDay(key, text);
+  inp.value='';
+  inp.focus();
+}
+
+// keydown: works for physical keyboard Enter
+function onAddKey(event, key) {
+  if(event.keyCode===13 || event.key==='Enter'){
+    event.preventDefault();
+    doAdd(key);
+  }
+}
+
+// oninput: catches Android soft-keyboard "Done" / "Enter" (inputType insertLineBreak)
+// Android WebView often sends keyCode 229 instead of 13 — this catches the line break
+function onAddInput(event, key) {
+  if(event.inputType === 'insertLineBreak' || event.inputType === 'insertParagraph'){
+    event.preventDefault();
+    doAdd(key);
+  }
+}
+
+function addTaskToDay(key, text) {
+  const wd = weekData();
+  if(!wd[key]) wd[key]=[];
+  const t = {id:newId(), text:text, done:false};
+  wd[key].push(t);
+  const list = document.getElementById('tl-'+key);
+  if(list) list.insertAdjacentHTML('beforeend', taskHTML(key, t));
+  refreshBadge(key);
+  schedule();
+}
+
+function refreshBadge(key) {
+  const wd = weekData();
+  const tasks = wd[key]||[];
+  const doneCnt = tasks.filter(t=>t.done).length;
+  const sec = document.querySelector(`.day-section[data-day="${key}"]`);
+  if(!sec) return;
+  let badge = sec.querySelector('.day-badge');
+  if(!badge){ badge=document.createElement('span'); badge.className='day-badge'; sec.querySelector('.day-header > div:last-child').prepend(badge); }
+  badge.textContent = doneCnt+'✓';
+  badge.classList.toggle('visible', doneCnt>0);
+}
+
+function changeWeek(dir){ weekOffset+=dir; render(); }
+
+/* ════════════════════════════════════════════════
+   THEME
+════════════════════════════════════════════════ */
+function toggleTheme(){
+  const next = document.documentElement.dataset.theme==='dark'?'light':'dark';
+  document.documentElement.dataset.theme=next;
+  localStorage.setItem('planner_theme',next);
+}
+
+/* ════════════════════════════════════════════════
+   LOCAL STORAGE — native Android bridge
+   Falls back to localStorage if running in browser
+════════════════════════════════════════════════ */
+function saveLocal(){
+  try{ localStorage.setItem('planner_data', JSON.stringify(data)); }
+  catch(e){ console.warn('localStorage error',e); }
+}
+
+function loadLocal(){
+  try{
+    const raw = localStorage.getItem('planner_data');
+    if(raw) data = JSON.parse(raw);
+  }catch(e){}
+}
+
+// plannerInit — no-op in PWA (data loaded via loadLocal in init)
+window.plannerInit = function(){ render(); };
+
+/* ════════════════════════════════════════════════
+   GOOGLE DRIVE
+════════════════════════════════════════════════ */
+function setDot(status){ // ok | err | busy | off
+  const el=document.getElementById('driveStatus');
+  el.className='dot'+(status!=='off'?' '+status:'');
+}
+
+function initAuth(){
+  const cid=localStorage.getItem('planner_cid');
+  if(!cid||!window.google) return;
+  tokenClient=google.accounts.oauth2.initTokenClient({
+    client_id:cid,
+    scope:'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email',
+    callback: async(resp)=>{
+      if(resp.error){ toast('Auth-Fehler: '+resp.error); setDot('err'); return; }
+      accessToken=resp.access_token;
+      localStorage.setItem('planner_tok',accessToken);
+      setDot('busy');
+      await fetchUser();
+      await pullDrive();
+      updateAuthUI();
+    }
+  });
+}
+
+async function fetchUser(){
+  try{
+    const r=await fetch('https://www.googleapis.com/oauth2/v2/userinfo',
+      {headers:{'Authorization':'Bearer '+accessToken}});
+    if(!r.ok) throw new Error(r.status);
+    userInfo=await r.json();
+    setDot('ok');
+  }catch(e){ setDot('err'); }
+}
+
+async function pullDrive(){
+  if(!accessToken) return;
+  setDot('busy');
+  syncSpin(true);
+  try{
+    // Find file
+    const q=encodeURIComponent("name='wochenplaner.json' and trashed=false");
+    const res=await driveGet(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`);
+    const js=await res.json();
+    if(js.files&&js.files.length>0){
+      driveFileId=js.files[0].id;
+      const fres=await driveGet(`https://www.googleapis.com/drive/v3/files/${driveFileId}?alt=media`);
+      const remote=await fres.json();
+      if(remote&&typeof remote==='object'){ data=remote; render(); toast('✓ Drive synchronisiert'); }
+    } else {
+      await pushDrive();
+      toast('Neue Drive-Datei erstellt');
+    }
+    setDot('ok');
+  }catch(e){
+    if(e.status===401){ accessToken=null; localStorage.removeItem('planner_tok'); setDot('err'); toast('Sitzung abgelaufen – bitte neu verbinden'); }
+    else { setDot('err'); toast('Drive-Fehler'); console.error(e); }
+  } finally { syncSpin(false); }
+}
+
+async function pushDrive(){
+  if(!accessToken) return;
+  setDot('busy'); syncSpin(true);
+  const body=JSON.stringify(data);
+  try{
+    if(driveFileId){
+      await fetch(`https://www.googleapis.com/upload/drive/v3/files/${driveFileId}?uploadType=media`,{
+        method:'PATCH',
+        headers:{'Authorization':'Bearer '+accessToken,'Content-Type':'application/json'},
+        body
+      });
+    } else {
+      const meta={name:'wochenplaner.json',mimeType:'application/json'};
+      const form=new FormData();
+      form.append('metadata',new Blob([JSON.stringify(meta)],{type:'application/json'}));
+      form.append('file',new Blob([body],{type:'application/json'}));
+      const res=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{
+        method:'POST',headers:{'Authorization':'Bearer '+accessToken},body:form
+      });
+      const d=await res.json(); driveFileId=d.id;
+    }
+    setDot('ok');
+  }catch(e){
+    setDot('err'); console.error('Push error:',e);
+    if(e.status===401){ accessToken=null; localStorage.removeItem('planner_tok'); }
+  } finally { syncSpin(false); }
+}
+
+async function driveGet(url){
+  const res=await fetch(url,{headers:{'Authorization':'Bearer '+accessToken}});
+  if(res.status===401){ const err=new Error('Unauthorized'); err.status=401; throw err; }
+  return res;
+}
+
+function syncSpin(on){
+  const btn=document.getElementById('syncBtn');
+  btn.style.animation=on?'spin .9s linear infinite':'none';
+}
+
+function schedule(){
+  saveLocal();
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(()=>{ if(accessToken) pushDrive(); },1800);
+}
+
+async function syncNow(){
+  if(!accessToken){ toast('Nicht verbunden'); return; }
+  schedule.lastPush=0;
+  await pullDrive();
+}
+
+/* ════════════════════════════════════════════════
+   SETTINGS SHEET
+════════════════════════════════════════════════ */
+function openSettings(){ updateAuthUI(); document.getElementById('sheetOverlay').classList.add('open'); }
+function closeSheet(){ document.getElementById('sheetOverlay').classList.remove('open'); }
+function closeSheetBg(e){ if(e.target.id==='sheetOverlay') closeSheet(); }
+
+function updateAuthUI(){
+  const area=document.getElementById('driveAuthArea');
+  const cidGrp=document.getElementById('clientIdGroup');
+  const cid=localStorage.getItem('planner_cid')||'';
+  document.getElementById('clientIdInput').value=cid;
+
+  if(accessToken&&userInfo){
+    area.innerHTML=`<div class="drive-card">
+      <div class="drive-avatar">${(userInfo.name||'?')[0].toUpperCase()}</div>
+      <div>
+        <div class="drive-name">${userInfo.name||'Verbunden'}</div>
+        <div class="drive-email">${userInfo.email||''}</div>
+      </div>
+    </div>
+    <button class="sbtn secondary" onclick="disconnect()" style="margin-top:8px;">Trennen</button>`;
+    cidGrp.style.display='none';
+  } else if(cid){
+    area.innerHTML=`<button class="sbtn primary" onclick="doConnect()">Mit Google Drive verbinden</button>`;
+    cidGrp.style.display='block';
+  } else {
+    area.innerHTML=`<div style="font-size:13px;color:var(--muted);">Bitte Client ID eingeben ↓</div>`;
+    cidGrp.style.display='block';
+  }
+}
+
+function saveClientId(){
+  const v=document.getElementById('clientIdInput').value.trim();
+  if(!v){ toast('Bitte Client ID eingeben'); return; }
+  localStorage.setItem('planner_cid',v);
+  initAuth();
+  updateAuthUI();
+  toast('Gespeichert – jetzt verbinden');
+}
+
+function doConnect(){
+  if(!tokenClient){ initAuth(); setTimeout(doConnect,400); return; }
+  tokenClient.requestAccessToken();
+  closeSheet();
+}
+
+function disconnect(){
+  accessToken=null; userInfo=null; driveFileId=null;
+  localStorage.removeItem('planner_tok');
+  setDot('off'); updateAuthUI(); toast('Getrennt');
+}
+
+/* ════════════════════════════════════════════════
+   IMPORT / EXPORT
+════════════════════════════════════════════════ */
+function exportJSON(){
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download='wochenplaner.json'; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  toast('Exportiert');
+}
+function importJSON(){ document.getElementById('importFile').click(); }
+function doImport(e){
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=ev=>{ try{ data=JSON.parse(ev.target.result); saveLocal(); if(accessToken) pushDrive(); render(); toast('Importiert'); }catch(err){ toast('Fehler: ungültige Datei'); } };
+  r.readAsText(f); e.target.value='';
+}
+
+/* ════════════════════════════════════════════════
+   TOAST
+════════════════════════════════════════════════ */
+let _tt;
+function toast(msg){
+  const el=document.getElementById('toast'); el.textContent=msg; el.classList.add('show');
+  clearTimeout(_tt); _tt=setTimeout(()=>el.classList.remove('show'),2600);
+}
+
+/* ════════════════════════════════════════════════
+   INIT
+════════════════════════════════════════════════ */
+(function init(){
+  const theme=localStorage.getItem('planner_theme')||'light';
+  document.documentElement.dataset.theme=theme;
+  loadLocal();
+  render();
+
+  // Wait for GIS then try auto-reconnect
+  const waitGIS=setInterval(()=>{
+    if(!window.google||!window.google.accounts) return;
+    clearInterval(waitGIS);
+    initAuth();
+    const tok=localStorage.getItem('planner_tok');
+    if(tok){
+      accessToken=tok;
+      setDot('busy');
+      fetchUser().then(()=>{ if(accessToken) pullDrive(); });
+    }
+  },300);
+})();
+</script>
+
+<script>
+// Service Worker
+if('serviceWorker' in navigator){
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('./sw.js')
+      .catch(function(e){ console.warn('SW:', e); });
+  });
+}
+// iOS install hint (once, Safari only)
+(function(){
+  var isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  var isStandalone = window.navigator.standalone === true;
+  if(isIos && !isStandalone && !localStorage.getItem('ios_hint')){
+    setTimeout(function(){
+      toast('Tipp: Teilen ↑ → „Zum Home-Bildschirm“');
+      localStorage.setItem('ios_hint','1');
+    }, 2500);
+  }
+})();
+</script>
+
+<!-- Google Identity Services -->
+<script src="https://accounts.google.com/gsi/client" async></script>
+</body>
+</html>
