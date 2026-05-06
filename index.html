@@ -4,17 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Lerntagebuch</title>
-
-<!-- PWA -->
 <link rel="manifest" href="manifest.json">
-
-<!-- iOS Safari -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Lerntagebuch">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-
-<!-- Theme color -->
 <meta name="theme-color" content="#eef0f8" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#12101e" media="(prefers-color-scheme: dark)">
 <meta name="format-detection" content="telephone=no">
@@ -75,7 +69,7 @@ body {
   font-family: 'Barlow', sans-serif;
   background: var(--bg);
   color: var(--text);
-  max-width: 480px;
+  max-width: 960px;
   margin: 0 auto;
   min-height: 100vh;
   transition: background .3s, color .3s;
@@ -94,6 +88,28 @@ body {
 @keyframes spin   { to{transform:rotate(360deg)} }
 @keyframes fadeIn { from{opacity:0;transform:translateY(-5px)} to{opacity:1;transform:translateY(0)} }
 @keyframes slideUp{ from{transform:translateY(100%)} to{transform:translateY(0)} }
+
+
+/* ─── IPAD LAYOUT ─── */
+@media (min-width: 640px) {
+  #dayContainer {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 8px;
+    padding: 0 4px;
+  }
+  .day-section {
+    margin: 10px 0 0 0;
+  }
+  /* Sa/So span full width — just 2 columns anyway */
+  .day-section:nth-child(6),
+  .day-section:nth-child(7) {
+    grid-column: span 1;
+  }
+  .app-footer {
+    margin: 12px 4px;
+  }
+}
 
 /* ─── HEADER ─── */
 .app-header {
@@ -434,6 +450,37 @@ body {
       <button class="sbtn primary" onclick="saveClientId()" style="margin-top:10px;">Speichern &amp; verbinden</button>
     </div>
 
+    <div class="grp" id="iservGroup">
+      <div class="grp-label">IServ Backup</div>
+      <div id="iservStatus"></div>
+      <input class="s-input" id="iservUrl" type="url"
+        placeholder="https://meine-schule.de" style="margin-bottom:6px;">
+      <input class="s-input" id="iservUser" type="text"
+        placeholder="Benutzername (IServ)" style="margin-bottom:6px;">
+      <input class="s-input" id="iservPass" type="password"
+        placeholder="Passwort">
+      <div class="s-note">Daten werden automatisch in dein IServ-Laufwerk gesichert.<br>
+        Pfad: <code>Eigene Dateien/lerntagebuch_backup.json</code></div>
+      <button class="sbtn primary" onclick="saveIServ()" style="margin-top:8px;">Verbinden &amp; speichern</button>
+      <button class="sbtn secondary" id="iservDisconnectBtn"
+        onclick="disconnectIServ()" style="margin-top:4px;display:none;">IServ trennen</button>
+    </div>
+
+    <div class="grp">
+      <div class="grp-label">IServ Backup (WebDAV)</div>
+      <div id="iservStatus" style="font-size:12px;margin-bottom:8px;"></div>
+      <input class="s-input" id="iservUrl"  type="url"      placeholder="https://iserv.meine-schule.de" style="margin-bottom:6px;">
+      <input class="s-input" id="iservUser" type="text"     placeholder="Benutzername" style="margin-bottom:6px;">
+      <input class="s-input" id="iservPass" type="password" placeholder="Passwort">
+      <div class="s-note" style="margin-top:6px;">
+        Sichert automatisch in dein IServ-Laufwerk.<br>
+        Datei: <code>lerntagebuch_backup.json</code><br>
+        <em>Hinweis: IServ muss CORS für diese Domain erlauben.</em>
+      </div>
+      <button class="sbtn primary" onclick="saveIServ()" style="margin-top:8px;">Verbinden &amp; speichern</button>
+      <button class="sbtn secondary" id="iservClearBtn" onclick="clearIServ()" style="margin-top:4px;display:none;">IServ trennen</button>
+    </div>
+
     <div class="grp">
       <div class="grp-label">Daten</div>
       <button class="sbtn secondary" onclick="exportJSON()">Als JSON exportieren</button>
@@ -735,9 +782,10 @@ function toggleTheme(){
    LOCAL STORAGE — native Android bridge
    Falls back to localStorage if running in browser
 ════════════════════════════════════════════════ */
+/* ── PWA: localStorage + IServ WebDAV ── */
 function saveLocal(){
-  try{ localStorage.setItem('planner_data', JSON.stringify(data)); }
-  catch(e){ console.warn('localStorage error',e); }
+  try{ localStorage.setItem('planner_data', JSON.stringify(data)); }catch(e){}
+  iservUpload();
 }
 
 function loadLocal(){
@@ -747,8 +795,55 @@ function loadLocal(){
   }catch(e){}
 }
 
-// plannerInit — no-op in PWA (data loaded via loadLocal in init)
 window.plannerInit = function(){ render(); };
+
+/* ── IServ WebDAV (PWA/Safari) ── */
+const ISERV = {
+  get url()  { return localStorage.getItem('iserv_url')  || ''; },
+  get user() { return localStorage.getItem('iserv_user') || ''; },
+  get pass() { return localStorage.getItem('iserv_pass') || ''; },
+  get ok()   { return !!(this.url && this.user && this.pass); },
+  save(u, usr, p){
+    localStorage.setItem('iserv_url',  u);
+    localStorage.setItem('iserv_user', usr);
+    localStorage.setItem('iserv_pass', p);
+  },
+  clear(){
+    ['iserv_url','iserv_user','iserv_pass'].forEach(k=>localStorage.removeItem(k));
+  }
+};
+
+function iservHeaders(){
+  const cred = btoa(unescape(encodeURIComponent(ISERV.user+':'+ISERV.pass)));
+  return { 'Authorization':'Basic '+cred, 'Content-Type':'application/json' };
+}
+
+function iservUpload(){
+  if(!ISERV.ok) return;
+  const url = ISERV.url+'/webdav/lerntagebuch_backup.json';
+  fetch(url, { method:'PUT', headers:iservHeaders(), body:JSON.stringify(data) })
+    .then(r=>{ if(r.ok) setDot('ok'); else if(r.status===401) setDot('err'); })
+    .catch(()=>setDot('err'));
+}
+
+async function iservDownload(){
+  if(!ISERV.ok) return;
+  try{
+    const r = await fetch(ISERV.url+'/webdav/lerntagebuch_backup.json',
+      { method:'GET', headers:iservHeaders() });
+    if(r.status===404) return; // noch keine Sicherung
+    if(!r.ok) return;
+    const remote = await r.json();
+    const localW  = Object.keys(data).length;
+    const remoteW = Object.keys(remote).length;
+    if(remoteW >= localW){
+      data = remote;
+      saveLocal();
+      render();
+      toast('✓ IServ-Backup wiederhergestellt');
+    }
+  }catch(e){ console.warn('IServ download error:',e); }
+}
 
 /* ════════════════════════════════════════════════
    GOOGLE DRIVE
@@ -865,7 +960,66 @@ async function syncNow(){
 /* ════════════════════════════════════════════════
    SETTINGS SHEET
 ════════════════════════════════════════════════ */
-function openSettings(){ updateAuthUI(); document.getElementById('sheetOverlay').classList.add('open'); }
+function openSettings(){
+  updateAuthUI();
+  updateIServUI();
+  document.getElementById('sheetOverlay').classList.add('open');
+}
+
+function updateIServUI(){
+  if(!window.Android) return;
+  const hasCredentials = Android.hasIServCredentials();
+  const url  = hasCredentials ? Android.getIServUrl()  : '';
+  const user = hasCredentials ? Android.getIServUser() : '';
+  document.getElementById('iservUrl').value  = url;
+  document.getElementById('iservUser').value = user;
+  document.getElementById('iservPass').value = '';
+  const btn = document.getElementById('iservDisconnectBtn');
+  if(btn) btn.style.display = hasCredentials ? '' : 'none';
+  const status = document.getElementById('iservStatus');
+  if(status){
+    status.innerHTML = hasCredentials
+      ? '<div style="font-size:12px;color:#22c55e;margin-bottom:8px;">✓ Verbunden mit '+url+'</div>'
+      : '<div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Nicht verbunden</div>';
+  }
+}
+
+function saveIServ(){
+  if(!window.Android){ toast('Nur in der Android-App verfügbar'); return; }
+  const url  = document.getElementById('iservUrl').value.trim();
+  const user = document.getElementById('iservUser').value.trim();
+  const pass = document.getElementById('iservPass').value;
+  if(!url || !user || !pass){ toast('Bitte alle IServ-Felder ausfüllen'); return; }
+  Android.saveIServCredentials(url, user, pass);
+  toast('IServ gespeichert – Backup läuft…');
+  updateIServUI();
+}
+
+function disconnectIServ(){
+  if(!window.Android) return;
+  Android.clearIServCredentials();
+  updateIServUI();
+  toast('IServ getrennt');
+}
+
+/* Called by Java after async IServ restore attempt */
+window.plannerRestoreFromIServ = function(b64){
+  if(!b64) return;  // no remote file yet — keep local data
+  try{
+    var bytes = Uint8Array.from(atob(b64), function(c){ return c.charCodeAt(0); });
+    var json  = new TextDecoder('utf-8').decode(bytes);
+    var remote = JSON.parse(json);
+    // Only overwrite if remote has more weeks than local
+    var localWeeks  = Object.keys(data).length;
+    var remoteWeeks = Object.keys(remote).length;
+    if(remoteWeeks >= localWeeks){
+      data = remote;
+      saveLocal();
+      render();
+      toast('✓ IServ-Backup wiederhergestellt');
+    }
+  }catch(e){ console.warn('plannerRestoreFromIServ error',e); }
+};
 function closeSheet(){ document.getElementById('sheetOverlay').classList.remove('open'); }
 function closeSheetBg(e){ if(e.target.id==='sheetOverlay') closeSheet(); }
 
@@ -950,6 +1104,8 @@ function toast(msg){
   document.documentElement.dataset.theme=theme;
   loadLocal();
   render();
+  // Try IServ restore after short delay
+  setTimeout(iservDownload, 800);
 
   // Wait for GIS then try auto-reconnect
   const waitGIS=setInterval(()=>{
@@ -967,26 +1123,22 @@ function toast(msg){
 </script>
 
 <script>
-// Service Worker
 if('serviceWorker' in navigator){
-  window.addEventListener('load', function(){
-    navigator.serviceWorker.register('./sw.js')
-      .catch(function(e){ console.warn('SW:', e); });
+  window.addEventListener('load',function(){
+    navigator.serviceWorker.register('./sw.js').catch(function(e){console.warn('SW:',e);});
   });
 }
-// iOS install hint (once, Safari only)
 (function(){
   var isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
-  var isStandalone = window.navigator.standalone === true;
-  if(isIos && !isStandalone && !localStorage.getItem('ios_hint')){
+  var isStandalone = window.navigator.standalone===true;
+  if(isIos&&!isStandalone&&!localStorage.getItem('ios_hint')){
     setTimeout(function(){
       toast('Tipp: Teilen ↑ → „Zum Home-Bildschirm“');
       localStorage.setItem('ios_hint','1');
-    }, 2500);
+    },2500);
   }
 })();
 </script>
-
 <!-- Google Identity Services -->
 <script src="https://accounts.google.com/gsi/client" async></script>
 </body>
